@@ -1,36 +1,39 @@
-import numpy as np
-from sklearn.model_selection import train_test_split
-
 from dataloader import LoadData
-
-def stack_examples(dataStore):
-    """
-    dataStore = list of examples
-      each example = list of channels (len = n_channels)
-      each channel = 1D array (samples)
-    return: X shape (N, n_channels, samples)
-    """
-    X = np.array([np.stack(ex, axis=0) for ex in dataStore], dtype=np.float32)
-    return X
+from preprocess import build_window_dataset
 
 def main():
-    data_dir = "PATH_CĂTRE_FOLDERUL_CU_NPY"  # <- schimba aici
+    data_dir = "sEmg_databases"
     loader = LoadData(data_dir, dc_offset=128)
 
-    dataStore, labels = loader.loadData_armthreeClasses(n_channels=8, class_index_in_name=2)
+    dataStore, labels, subjects = loader.load_three_classes(n_channels=8)
 
-    X = stack_examples(dataStore)
-    y = np.array(labels, dtype=np.int64)
+    print("=== FILE-LEVEL ===")
+    print("Numar fisiere:", len(labels))
+    print("Clase unice:", sorted(set(labels)))
+    print("Primele 10 labels:", labels[:10])
 
-    print("X:", X.shape, "y:", y.shape, "classes:", np.unique(y))
+    if len(labels) == 0:
+        print("Nu s-a incarcat nimic. Verifica path-ul si numele fisierelor.")
+        return
 
-    # stratify ca sa pastrezi proportiile claselor in split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+    Xw, yw = build_window_dataset(
+        dataStore, labels,
+        win_size=512,
+        overlap=0.5,
+        clip_k=6.0,
+        max_windows_per_example=5  # doar pentru debug
     )
 
-    print("Train:", X_train.shape, y_train.shape)
-    print("Test:",  X_test.shape,  y_test.shape)
+    print("\n=== WINDOW-LEVEL ===")
+    print("Xw shape:", Xw.shape)  # (num_windows, n_channels, win_size)
+    print("yw shape:", yw.shape)
+    print("Primele 20 etichete ferestre:", yw[:20])
+
+    if Xw.shape[0] > 0:
+        print("\nPrima fereastra:")
+        print(" shape:", Xw[0].shape)
+        print(" label:", yw[0])
+        print(" canal 0 primele 10 valori:", Xw[0, 0, :10])
 
 if __name__ == "__main__":
     main()

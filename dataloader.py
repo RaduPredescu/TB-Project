@@ -1,206 +1,116 @@
 import os
+import re
 import numpy as np
 
 
 class LoadData:
+    """
+    Data loader for EMG Database 1 with flat folder structure.
+    """
+
     def __init__(self, dataDirectory, dc_offset=128):
+        """
+        Initialize the data loader.
+
+        Params
+        dataDirectory : str
+            Path to the folder containing the .npy EMG files.
+        dc_offset : int, optional
+            Constant offset to subtract from raw samples in order
+            to center the signal around zero.
+        """
         self.dataDirectory = dataDirectory
         self.dc_offset = dc_offset
+        self.pattern = re.compile(r"^Subiect_(\d+)_(\d+)_r\.npy$", re.IGNORECASE)
 
-    # ----------------- Utils -----------------
-    def load_data(self, filename):
-        return np.load(filename)
+    def load_data(self, filepath):
+        """
+        Load a NumPy file from disk.
 
-    def _get_channels(self, file_data, n_channels=None):
-        if n_channels is None:
-            n_channels = file_data.shape[0]
+        Params
+        filepath : str
+            Full path to the .npy file.
 
-        channels = [
-            file_data[i].astype(int) - self.dc_offset
-            for i in range(n_channels)
-        ]
-        return channels
+        Returns
+        np.ndarray
+            Array containing the raw EMG data.
+        """
+        return np.load(filepath)
 
-    def _iter_npy_files(self):
-        for filename in os.listdir(self.dataDirectory):
-            if filename.endswith(".npy"):
-                full_path = os.path.join(self.dataDirectory, filename)
-                file_data = self.load_data(full_path)
-                parts = filename.split("_")
-                # ai deja acest print, îl păstrez pentru debug
-                print(parts)
-                yield filename, parts, file_data
+    def _get_channels(self, file_data, n_channels):
+        """
+        Extract and preprocess EMG channels from a loaded file.
 
-    # ----------------- 3 classes, full arm -----------------
-    def loadData_armthreeClasses(self, n_channels=8, class_index_in_name=2):
-       
-        dataStore = []
-        labels = []
+        The function selects the first `n_channels` channels,
+        converts them to integers, and removes the DC offset.
 
-        class_map = {
-            "0": 0,
-            "1": 1,
-            "2": 2
-        }
+        Params
+        file_data : np.ndarray
+            Raw EMG data with shape (num_channels, num_samples).
+        n_channels : int
+            Number of channels to extract.
 
-        for filename, parts, file_data in self._iter_npy_files():
-            if len(parts) <= class_index_in_name:
+        Returns
+        list of np.ndarray
+            List of 1D arrays, one per channel.
+        """
+        n_channels = min(n_channels, file_data.shape[0])
+        return [(file_data[i].astype(np.int32) - self.dc_offset)
+                for i in range(n_channels)]
+
+    def iter_files(self):
+        """
+        Iterate over all valid EMG files in the data directory.
+
+        Yields
+        ------
+        tuple
+            (filename, subject_id, class_id, file_data)
+        """
+        for fn in os.listdir(self.dataDirectory):
+            if not fn.lower().endswith(".npy"):
                 continue
 
-            cl = parts[class_index_in_name]
-            if cl in class_map:
-                channels = self._get_channels(file_data, n_channels=n_channels)
-                dataStore.append(channels)
-                labels.append(class_map[cl])
-
-        return dataStore, labels
-
-    # ----------------- 2 classes, leg movement -----------------
-    def loadData_twoClasses_leg(
-        self,
-        n_channels=4,
-        class_id="3",
-        class_index_in_name=2,
-        start_rest=0,
-        end_rest=20480,
-        start_fatigue=20480,
-        end_fatigue=40960
-    ):
-        
-        dataStore = []
-        labels = []
-
-        for filename, parts, file_data in self._iter_npy_files():
-            if len(parts) <= class_index_in_name:
+            m = self.pattern.match(fn)
+            if not m:
                 continue
 
-            cl = parts[class_index_in_name]
-            if cl == class_id:
-                channels = self._get_channels(file_data, n_channels=n_channels)
+            subject_id = int(m.group(1))
+            class_id = int(m.group(2))
 
-                
-                seg1 = [ch[start_rest:end_rest] for ch in channels]
-                dataStore.append(seg1)
-                labels.append(0)
+            full_path = os.path.join(self.dataDirectory, fn)
+            file_data = self.load_data(full_path)
 
-                
-                seg2 = [ch[start_fatigue:end_fatigue] for ch in channels]
-                dataStore.append(seg2)
-                labels.append(1)
+            yield fn, subject_id, class_id, file_data
 
-        return dataStore, labels
+    def load_three_classes(self, n_channels=8):
+        """
+        Load the dataset for three-class movement classification.
 
-    # ----------------- 2 classes, first arm movement -----------------
-    def loadData_twoClasses_firstarmmovement(
-        self,
-        n_channels=8,
-        class_id="0",
-        class_index_in_name=2,
-        start_class0=0,
-        end_class0=15360,
-        start_class1=15360,
-        end_class1=None
-    ):
-        
-        dataStore = []
-        labels = []
+        Only files with class IDs 0, 1, and 2 are considered.
+        Each file becomes one example consisting of multiple channels.
 
-        for filename, parts, file_data in self._iter_npy_files():
-            if len(parts) <= class_index_in_name:
+        Params
+        n_channels : int, optional
+            Number of EMG channels to load from each file.
+
+        Returns
+        dataStore : list
+            List of examples; each example is a list of channels.
+        labels : list
+            List of integer class labels (0, 1, or 2).
+        subjects : list
+            List of subject IDs corresponding to each example.
+        """
+        dataStore, labels, subjects = [], [], []
+
+        for fn, subject_id, class_id, file_data in self.iter_files():
+            if class_id not in (0, 1, 2):
                 continue
 
-            cl = parts[class_index_in_name]
-            if cl == class_id:
-                channels = self._get_channels(file_data, n_channels=n_channels)
+            channels = self._get_channels(file_data, n_channels=n_channels)
+            dataStore.append(channels)
+            labels.append(class_id)
+            subjects.append(subject_id)
 
-                # Class 0 segment
-                seg0 = [ch[start_class0:end_class0] for ch in channels]
-                dataStore.append(seg0)
-                labels.append(0)
-
-                # Class 1 segment (până la end_class1 sau până la final)
-                if end_class1 is None:
-                    seg1 = [ch[start_class1:] for ch in channels]
-                else:
-                    seg1 = [ch[start_class1:end_class1] for ch in channels]
-                dataStore.append(seg1)
-                labels.append(1)
-
-        return dataStore, labels
-
-    # ----------------- 2 classes, second arm movement -----------------
-    def loadData_twoClasses_secondarmmovement(
-        self,
-        n_channels=8,
-        class_id="1",
-        class_index_in_name=2,
-        # implicit: 10s–30s (5120–15360) vs 40s–60s (20480–end)
-        start_class0=5120,
-        end_class0=15360,
-        start_class1=20480,
-        end_class1=None
-    ):
-        
-        dataStore = []
-        labels = []
-
-        for filename, parts, file_data in self._iter_npy_files():
-            if len(parts) <= class_index_in_name:
-                continue
-
-            cl = parts[class_index_in_name]
-            if cl == class_id:
-                channels = self._get_channels(file_data, n_channels=n_channels)
-
-                
-                seg0 = [ch[start_class0:end_class0] for ch in channels]
-                dataStore.append(seg0)
-                labels.append(0)
-
-                
-                if end_class1 is None:
-                    seg1 = [ch[start_class1:] for ch in channels]
-                else:
-                    seg1 = [ch[start_class1:end_class1] for ch in channels]
-                dataStore.append(seg1)
-                labels.append(1)
-
-        return dataStore, labels
-
-    # ----------------- 2 classes, third arm movement -----------------
-    def loadData_twoClasses_thirdarmmovement(
-        self,
-        n_channels=8,
-        class_id="2",
-        class_index_in_name=2,
-        start_class0=5120,
-        end_class0=15360,
-        start_class1=20480,
-        end_class1=None
-    ):
-        
-        dataStore = []
-        labels = []
-
-        for filename, parts, file_data in self._iter_npy_files():
-            if len(parts) <= class_index_in_name:
-                continue
-
-            cl = parts[class_index_in_name]
-            if cl == class_id:
-                channels = self._get_channels(file_data, n_channels=n_channels)
-
-                # Class 0 segment
-                seg0 = [ch[start_class0:end_class0] for ch in channels]
-                dataStore.append(seg0)
-                labels.append(0)
-
-                # Class 1 segment
-                if end_class1 is None:
-                    seg1 = [ch[start_class1:] for ch in channels]
-                else:
-                    seg1 = [ch[start_class1:end_class1] for ch in channels]
-                dataStore.append(seg1)
-                labels.append(1)
-
-        return dataStore, labels
+        return dataStore, labels, subjects
