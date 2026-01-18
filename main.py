@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from dataloader import LoadData
 from preprocess import build_window_dataset_with_subjects
 from feature_extraction import build_feature_matrix
-
+from model import *
 
 def print_split_stats(name, y):
     u, c = np.unique(y, return_counts=True)
@@ -80,6 +80,15 @@ def main():
     print("Xf_te:", Xf_te.shape)
     print("num_features:", Xf_tr.shape[1])
     print("first 5 feature names:", feat_names[:5])
+
+
+    model, device = train_mlp(Xf_tr, yw_tr, Xf_va, yw_va, epochs=75, batch_size=128, lr=1e-2)
+
+    # test
+    ds_te = NumpyDataset(Xf_te, yw_te)
+    dl_te = DataLoader(ds_te, batch_size=512, shuffle=False)
+    test_acc = evaluate(model, dl_te, device)
+    print(f"TEST accuracy: {test_acc * 100:.2f} %")
 
 
 if __name__ == "__main__":
