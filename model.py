@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 
 class NumpyDataset(Dataset):
@@ -38,8 +39,7 @@ class MLP(nn.Module):
 @torch.no_grad()
 def evaluate(model, loader, device):
     model.eval()
-    correct = 0
-    total = 0
+    correct, total = 0, 0
     for X, y in loader:
         X, y = X.to(device), y.to(device)
         logits = model(X)
@@ -49,7 +49,30 @@ def evaluate(model, loader, device):
     return correct / max(total, 1)
 
 
-def train_mlp(X_tr, y_tr, X_va, y_va, *, epochs=20, batch_size=256, lr=1e-3, seed=42):
+@torch.no_grad()
+def evaluate_loss(model, loader, device, loss_fn):
+    model.eval()
+    total_loss, total_n = 0.0, 0
+    for X, y in loader:
+        X, y = X.to(device), y.to(device)
+        logits = model(X)
+        loss = loss_fn(logits, y)
+        total_loss += loss.item() * y.size(0)
+        total_n += y.size(0)
+    return total_loss / max(total_n, 1)
+
+
+def train_mlp(
+    X_tr, y_tr, X_va, y_va,
+    *,
+    epochs=20,
+    batch_size=256,
+    lr=1e-3,
+    seed=42,
+    log_dir="runs",
+    experiment_name="mlp_emg",
+    log_weight_hist=False
+):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
@@ -65,12 +88,20 @@ def train_mlp(X_tr, y_tr, X_va, y_va, *, epochs=20, batch_size=256, lr=1e-3, see
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.CrossEntropyLoss()
 
+    writer = SummaryWriter(log_dir=f"{log_dir}/{experiment_name}")
+
+    # log hparams (simple)
+    writer.add_text("hparams", f"epochs={epochs}, batch_size={batch_size}, lr={lr}, seed={seed}")
+
     best_va = -1.0
     best_state = None
+    global_step = 0
 
     for epoch in range(1, epochs + 1):
         model.train()
-        running = 0.0
+        running_loss = 0.0
+        running_correct = 0
+        running_total = 0
 
         for X, y in dl_tr:
             X, y = X.to(device), y.to(device)
@@ -81,19 +112,49 @@ def train_mlp(X_tr, y_tr, X_va, y_va, *, epochs=20, batch_size=256, lr=1e-3, see
             loss.backward()
             opt.step()
 
-            running += loss.item() * y.size(0)
+            # train stats
+            running_loss += loss.item() * y.size(0)
+            pred = torch.argmax(logits, dim=1)
+            running_correct += (pred == y).sum().item()
+            running_total += y.numel()
 
-        train_loss = running / len(ds_tr)
-        va_acc = evaluate(model, dl_va, device)
+            global_step += 1
 
-        if va_acc > best_va:
-            best_va = va_acc
+        train_loss = running_loss / max(running_total, 1)
+        train_acc = running_correct / max(running_total, 1)
+
+        val_acc = evaluate(model, dl_va, device)
+        val_loss = evaluate_loss(model, dl_va, device, loss_fn)
+
+        # TensorBoard scalars
+        writer.add_scalar("loss/train", train_loss, epoch)
+        writer.add_scalar("loss/val", val_loss, epoch)
+        writer.add_scalar("acc/train", train_acc, epoch)
+        writer.add_scalar("acc/val", val_acc, epoch)
+
+        if val_acc > best_va:
+            best_va = val_acc
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
-        print(f"Epoch {epoch:02d} | train_loss={train_loss:.4f} | val_acc={va_acc:.4f}")
+        print(f"Epoch {epoch:02d} | train_loss={train_loss:.4f} | train_acc={train_acc:.4f} "
+              f"| val_loss={val_loss:.4f} | val_acc={val_acc:.4f}")
 
-    # load best
     if best_state is not None:
         model.load_state_dict(best_state)
 
+    writer.add_text("best", f"best_val_acc={best_va:.4f}")
+    writer.close()
+
     return model, device
+
+@torch.no_grad()
+def predict(model, loader, device):
+    model.eval()
+    ys, ps = [], []
+    for X, y in loader:
+        X = X.to(device)
+        logits = model(X)
+        pred = torch.argmax(logits, dim=1).cpu().numpy()
+        ys.append(y.numpy())
+        ps.append(pred)
+    return np.concatenate(ys), np.concatenate(ps)

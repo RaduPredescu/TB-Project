@@ -164,3 +164,22 @@ def HjorthActivity(x):
     """
     mu = np.mean(x)
     return float(np.mean((x - mu) ** 2))
+
+def AsymmetryCoefficient(X1, X2):
+    """
+    Asymmetry coefficient between two channels, as defined in the assignment.
+
+    K_As = |X1 - X2| / max(X1, X2) * 100
+
+    Parameters
+    ----------
+    X1, X2 : float
+        Feature values from two channels (e.g., RMS or Skewness).
+
+    Returns
+    -------
+    float
+        Asymmetry coefficient in percent.
+    """
+    denom = max(abs(X1), abs(X2)) + 1e-9
+    return float(abs(X1 - X2) / denom * 100.0)

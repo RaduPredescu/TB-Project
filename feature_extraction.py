@@ -1,5 +1,5 @@
 import numpy as np
-from descriptors import MAV, RMS, WL, ZCR, SSC, Skewness, ISEMG, HjorthActivity
+from descriptors import MAV, RMS, WL, ZCR, SSC, Skewness, ISEMG, HjorthActivity, AsymmetryCoefficient
 
 
 def get_feature_names(n_channels, add_relational=False):
@@ -25,7 +25,7 @@ def get_feature_names(n_channels, add_relational=False):
             names.append(f"ch{c}_{f}")
 
     if add_relational and n_channels >= 2:
-        names += ["rel_absdiff_RMS_ch0_ch1", "rel_ratio_RMS_ch0_over_ch1", "rel_corr_ch0_ch1"]
+        names += ["KAs_RMS_ch0_ch1", "KAs_Skew_ch0_ch1"]
 
     return names
 
@@ -69,18 +69,17 @@ def extract_features_per_window(window, alpha=0.0, add_relational=False):
 
     if add_relational and window.shape[0] >= 2:
         ch0, ch1 = window[0], window[1]
+
         rms0, rms1 = RMS(ch0), RMS(ch1)
+        skew0, skew1 = Skewness(ch0), Skewness(ch1)
 
-        diff_rms = abs(rms0 - rms1)
-        ratio_rms = rms0 / (rms1 + 1e-9)
+        kas_rms = AsymmetryCoefficient(rms0, rms1)
+        kas_skew = AsymmetryCoefficient(skew0, skew1)
 
-        corr = np.corrcoef(ch0, ch1)[0, 1]
-        if not np.isfinite(corr):
-            corr = 0.0
+        feats.extend([kas_rms, kas_skew])
 
-        feats.extend([diff_rms, ratio_rms, float(corr)])
 
-    return np.array(feats, dtype=np.float32)
+        return np.array(feats, dtype=np.float32)
 
 
 def build_feature_matrix(Xw, alpha=0.0, add_relational=False, return_names=True):

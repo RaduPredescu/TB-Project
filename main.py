@@ -6,6 +6,10 @@ from dataloader import LoadData
 from preprocess import build_window_dataset_with_subjects
 from feature_extraction import build_feature_matrix
 from model import *
+from svm import *
+
+from metrics import compute_classification_metrics, print_metrics
+
 
 def print_split_stats(name, y):
     u, c = np.unique(y, return_counts=True)
@@ -21,8 +25,6 @@ def main():
     p_train = float(cfg["split"]["train"])
     p_val = float(cfg["split"]["val"])
     p_test = float(cfg["split"]["test"])
-
-    assert abs((p_train + p_val + p_test) - 1.0) < 1e-6, "Split percentages must sum to 1.0"
 
     print("Config:")
     print(" alpha =", alpha)
@@ -70,9 +72,9 @@ def main():
     print_split_stats("TEST",  yw_te)
 
     # --- feature extraction with alpha from config ---
-    Xf_tr, feat_names = build_feature_matrix(Xw_tr, alpha=alpha, add_relational=False, return_names=True)
-    Xf_va = build_feature_matrix(Xw_va, alpha=alpha, add_relational=False, return_names=False)
-    Xf_te = build_feature_matrix(Xw_te, alpha=alpha, add_relational=False, return_names=False)
+    Xf_tr, feat_names = build_feature_matrix(Xw_tr, alpha=alpha, add_relational=True, return_names=True)
+    Xf_va = build_feature_matrix(Xw_va, alpha=alpha, add_relational=True, return_names=False)
+    Xf_te = build_feature_matrix(Xw_te, alpha=alpha, add_relational=True, return_names=False)
 
     print("\n=== FEATURE MATRICES ===")
     print("Xf_tr:", Xf_tr.shape)
@@ -82,13 +84,36 @@ def main():
     print("first 5 feature names:", feat_names[:5])
 
 
-    model, device = train_mlp(Xf_tr, yw_tr, Xf_va, yw_va, epochs=75, batch_size=128, lr=1e-2)
+    model_type = cfg["model"]["type"].lower()
 
-    # test
-    ds_te = NumpyDataset(Xf_te, yw_te)
-    dl_te = DataLoader(ds_te, batch_size=512, shuffle=False)
-    test_acc = evaluate(model, dl_te, device)
-    print(f"TEST accuracy: {test_acc * 100:.2f} %")
+    if model_type == "mlp":
+        model, device = train_mlp(
+            Xf_tr, yw_tr,
+            Xf_va, yw_va,
+            epochs=30,
+            batch_size=256,
+            lr=1e-3,
+            experiment_name="emg_mlp",
+        )
+
+        ds_te = NumpyDataset(Xf_te, yw_te)
+        dl_te = DataLoader(ds_te, batch_size=512, shuffle=False)
+
+        y_true, y_pred = predict(model, dl_te, device)
+        metrics = compute_classification_metrics(y_true, y_pred)
+        print_metrics("MLP – TEST", metrics)
+
+    elif model_type == "svm":
+        C = float(cfg["model"]["svm"]["C"])
+        kernel = cfg["model"]["svm"]["kernel"]
+
+        clf, stats = train_svm(Xf_tr, yw_tr, Xf_va, yw_va, C=C, kernel=kernel)
+        if "val_acc" in stats:
+            print(f"VAL accuracy (SVM): {stats['val_acc'] * 100:.2f} %")
+
+        y_pred = clf.predict(Xf_te)
+        metrics = compute_classification_metrics(yw_te, y_pred)
+        print_metrics("SVM – TEST", metrics)
 
 
 if __name__ == "__main__":
