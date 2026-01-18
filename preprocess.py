@@ -1,4 +1,8 @@
 import numpy as np
+from normalize import Normalize
+
+normalizer = Normalize()
+
 
 
 def remove_mean(channels):
@@ -75,29 +79,10 @@ def zscore_normalize(channels):
 
 
 def preprocess_channels(channels, clip_k=6.0):
-    """
-    Full preprocessing pipeline for one EMG example.
-
-    The pipeline includes:
-      1. DC offset removal (mean subtraction)
-      2. Robust artifact clipping using MAD
-      3. Z-score normalization
-
-    Params
-    channels : list of np.ndarray
-        Raw EMG channels for one example.
-    clip_k : float, optional
-        Threshold for MAD-based clipping.
-
-    Returns
-    list of np.ndarray
-        Preprocessed EMG channels.
-    """
     ch = remove_mean(channels)
     ch = clip_outliers_mad(ch, k=clip_k)
-    ch = zscore_normalize(ch)
+    ch = normalizer.peak_per_channel(ch)   # <-- aici e apelul
     return ch
-
 
 def make_windows(channels, win_size=512, overlap=0.5):
     """
@@ -175,3 +160,32 @@ def build_window_dataset(dataStore, labels, win_size=512, overlap=0.5,
     Xw = np.stack(X_list, axis=0)
     yw = np.array(y_list, dtype=np.int64)
     return Xw, yw
+
+def build_window_dataset_with_subjects(dataStore, labels, subjects,
+                                       win_size=512, overlap=0.5,
+                                       clip_k=6.0, max_windows_per_example=None):
+    X_list, y_list, s_list = [], [], []
+
+    for ex, lab, subj in zip(dataStore, labels, subjects):
+        ch = preprocess_channels(ex, clip_k=clip_k)
+        ws = make_windows(ch, win_size=win_size, overlap=overlap)
+
+        if max_windows_per_example is not None:
+            ws = ws[:max_windows_per_example]
+
+        for w in ws:
+            X_list.append(w)
+            y_list.append(lab)
+            s_list.append(subj)
+
+    if len(X_list) == 0:
+        return (
+            np.empty((0, 0, 0), dtype=np.float32),
+            np.array([], dtype=np.int64),
+            np.array([], dtype=np.int64)
+        )
+
+    Xw = np.stack(X_list, axis=0)
+    yw = np.array(y_list, dtype=np.int64)
+    sw = np.array(s_list, dtype=np.int64)
+    return Xw, yw, sw

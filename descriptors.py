@@ -56,7 +56,7 @@ def WL(x):
     return float(np.sum(np.abs(np.diff(x))))
 
 
-def ZCR(x, alpha=0.0):
+def ZCR(x, alpha=0.02):
     """
     Zero Crossing Rate (ZCR).
 
@@ -83,7 +83,7 @@ def ZCR(x, alpha=0.0):
     return float(np.sum(sign_change & thresh))
 
 
-def SSC(x, alpha=0.0):
+def SSC(x, alpha=0.02):
     """
     Slope Sign Changes (SSC).
 
