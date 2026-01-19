@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 
-class NumpyDataset(Dataset):
+class TorchDataset(Dataset):
     """Wrap (X, y) numpy arrays for PyTorch."""
     def __init__(self, X: np.ndarray, y: np.ndarray):
         self.X = torch.tensor(X, dtype=torch.float32)
@@ -71,22 +71,32 @@ def train_mlp(
     seed=42,
     log_dir="runs",
     experiment_name="mlp_emg",
-    log_weight_hist=False
+    log_weight_hist=False,
+    sched_step=5,
+    sched_factor=0.5
 ):
+
     torch.manual_seed(seed)
     np.random.seed(seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
 
-    ds_tr = NumpyDataset(X_tr, y_tr)
-    ds_va = NumpyDataset(X_va, y_va)
+    ds_tr = TorchDataset(X_tr, y_tr)
+    ds_va = TorchDataset(X_va, y_va)
 
     dl_tr = DataLoader(ds_tr, batch_size=batch_size, shuffle=True, drop_last=False)
     dl_va = DataLoader(ds_va, batch_size=batch_size, shuffle=False)
 
     model = MLP(in_dim=X_tr.shape[1], n_classes=len(np.unique(y_tr))).to(device)
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    opt = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     loss_fn = nn.CrossEntropyLoss()
+
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        opt,
+        step_size=sched_step,
+        gamma=sched_factor
+    )
 
     writer = SummaryWriter(log_dir=f"{log_dir}/{experiment_name}")
 
@@ -125,8 +135,11 @@ def train_mlp(
 
         val_acc = evaluate(model, dl_va, device)
         val_loss = evaluate_loss(model, dl_va, device, loss_fn)
-
+        scheduler.step()
         # TensorBoard scalars
+        current_lr = opt.param_groups[0]["lr"]
+        writer.add_scalar("lr", current_lr, epoch)
+
         writer.add_scalar("loss/train", train_loss, epoch)
         writer.add_scalar("loss/val", val_loss, epoch)
         writer.add_scalar("acc/train", train_acc, epoch)

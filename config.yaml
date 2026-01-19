@@ -7,7 +7,19 @@ split:
   test: 0.15
 
 model:
-  type: "svm" #mlp or svm
+  type: "mlp"   # "mlp" or "svm"
+
+  mlp:
+    epochs: 400
+    batch_size: 512
+    lr: 1e-3
+    experiment_name: "10th_experiment"
+
+    scheduler:
+      step: 200        # la cate epoci se modifica LR
+      factor: 0.1    # lr = lr * factor
+
   svm:
-    C: 5.0
-    kernel: "rbf" #linear, poly, rbf, sigmoid
+    C: 10.0
+    kernel: "rbf"
+    gamma: "scale"

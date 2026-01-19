@@ -7,7 +7,7 @@ from preprocess import build_window_dataset_with_subjects
 from feature_extraction import build_feature_matrix
 from model import *
 from svm import *
-
+import time
 from metrics import compute_classification_metrics, print_metrics
 
 
@@ -33,6 +33,14 @@ def main():
     # --- load data ---
     loader = LoadData("sEmg_databases", dc_offset=128)
     dataStore, labels, subjects = loader.load_three_classes(n_channels=8)
+
+    # import numpy as np
+
+    ex = dataStore[0]  # primul exemplu
+    for i, ch in enumerate(ex):
+        rms = np.sqrt(np.mean(ch**2))
+        print(f"Channel {i}: RMS = {rms:.3f}")
+
 
     # windows + subjects
     Xw, yw, sw = build_window_dataset_with_subjects(
@@ -85,29 +93,45 @@ def main():
 
 
     model_type = cfg["model"]["type"].lower()
+    epochs = cfg["model"]["mlp"]["epochs"]
+    batch_size = cfg["model"]["mlp"]["batch_size"]
+    lr = cfg["model"]["mlp"]["lr"]
+    experiment_name = cfg["model"]["mlp"]["experiment_name"]
+
+    initial_time = time.time()
 
     if model_type == "mlp":
+        mlp_cfg = cfg["model"]["mlp"]
+        sched_cfg = mlp_cfg["scheduler"]
+        experiment_name = mlp_cfg["experiment_name"]
         model, device = train_mlp(
             Xf_tr, yw_tr,
             Xf_va, yw_va,
-            epochs=30,
-            batch_size=256,
-            lr=1e-3,
-            experiment_name="emg_mlp",
+            epochs=int(mlp_cfg["epochs"]),
+            batch_size=int(mlp_cfg["batch_size"]),
+            lr=float(mlp_cfg["lr"]),
+            experiment_name=experiment_name,
+            sched_step=int(sched_cfg["step"]),
+            sched_factor=float(sched_cfg["factor"]),
         )
 
-        ds_te = NumpyDataset(Xf_te, yw_te)
+        final_time = time.time()
+        print(f"\nTraining time (MLP): {final_time - initial_time:.2f} seconds")
+        ds_te = TorchDataset(Xf_te, yw_te)
         dl_te = DataLoader(ds_te, batch_size=512, shuffle=False)
 
         y_true, y_pred = predict(model, dl_te, device)
         metrics = compute_classification_metrics(y_true, y_pred)
         print_metrics("MLP – TEST", metrics)
 
+
     elif model_type == "svm":
         C = float(cfg["model"]["svm"]["C"])
         kernel = cfg["model"]["svm"]["kernel"]
 
         clf, stats = train_svm(Xf_tr, yw_tr, Xf_va, yw_va, C=C, kernel=kernel)
+        final_time = time.time()
+        print(f"\nTraining time (SVM): {final_time - initial_time:.2f} seconds")
         if "val_acc" in stats:
             print(f"VAL accuracy (SVM): {stats['val_acc'] * 100:.2f} %")
 
