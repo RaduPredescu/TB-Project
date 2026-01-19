@@ -30,11 +30,8 @@ def main():
     print(" alpha =", alpha)
     print(" split =", p_train, p_val, p_test)
 
-    # --- load data ---
     loader = LoadData("sEmg_databases", dc_offset=128)
     dataStore, labels, subjects = loader.load_three_classes(n_channels=8)
-
-    # import numpy as np
 
     ex = dataStore[0]  # primul exemplu
     for i, ch in enumerate(ex):
@@ -42,7 +39,6 @@ def main():
         print(f"Channel {i}: RMS = {rms:.3f}")
 
 
-    # windows + subjects
     Xw, yw, sw = build_window_dataset_with_subjects(
         dataStore, labels, subjects,
         win_size=512, overlap=0.5, clip_k=6.0
@@ -51,15 +47,12 @@ def main():
     print("\nALL windows:", Xw.shape)
     print_split_stats("ALL", yw)
 
-    # --- subject-wise split ---
     uniq_subj = np.unique(sw)
 
-    # train vs temp
     subj_train, subj_temp = train_test_split(
         uniq_subj, test_size=(1.0 - p_train), random_state=42, shuffle=True
     )
 
-    # val vs test from temp
     val_ratio_in_temp = p_val / (p_val + p_test)
     subj_val, subj_test = train_test_split(
         subj_temp, test_size=(1.0 - val_ratio_in_temp), random_state=42, shuffle=True
@@ -79,7 +72,6 @@ def main():
     print_split_stats("VAL",   yw_va)
     print_split_stats("TEST",  yw_te)
 
-    # --- feature extraction with alpha from config ---
     Xf_tr, feat_names = build_feature_matrix(Xw_tr, alpha=alpha, add_relational=True, return_names=True)
     Xf_va = build_feature_matrix(Xw_va, alpha=alpha, add_relational=True, return_names=False)
     Xf_te = build_feature_matrix(Xw_te, alpha=alpha, add_relational=True, return_names=False)

@@ -19,7 +19,7 @@ class TorchDataset(Dataset):
 
 
 class MLP(nn.Module):
-    """Simple MLP for window-level feature vectors."""
+    
     def __init__(self, in_dim: int, n_classes: int = 3):
         super().__init__()
         self.net = nn.Sequential(

@@ -3,21 +3,6 @@ from descriptors import MAV, RMS, WL, ZCR, SSC, Skewness, ISEMG, HjorthActivity,
 
 
 def get_feature_names(n_channels, add_relational=False, biceps_idx = 2, triceps_idx = 5):
-    """
-    Build a list of feature names in the exact order in which features are extracted.
-
-    Parameters
-    ----------
-    n_channels : int
-        Number of channels in the window.
-    add_relational : bool
-        If True, append relational features (only meaningful for >=2 channels).
-
-    Returns
-    -------
-    list[str]
-        Feature names.
-    """
 
     base = ["MAV", "RMS", "WL", "ZCR", "SSC", "Skewness", "ISEMG", "HjorthActivity"]
     names = []
@@ -34,29 +19,7 @@ def get_feature_names(n_channels, add_relational=False, biceps_idx = 2, triceps_
 
 
 def extract_features_per_window(window, alpha=0.0, add_relational=False, biceps_idx=2, triceps_idx=5):
-    """
-    Extract time-domain features for a single multi-channel window.
 
-    Features per channel (in order):
-      MAV, RMS, WL, ZCR, SSC, Skewness, ISEMG, HjorthActivity
-
-    Optionally adds relational features between channel 0 and channel 1:
-      |RMS0 - RMS1|, RMS0/(RMS1+eps), corr(ch0, ch1)
-
-    Parameters
-    ----------
-    window : np.ndarray
-        Window array of shape (n_channels, win_size).
-    alpha : float
-        Threshold used for ZCR and SSC (noise suppression).
-    add_relational : bool
-        Whether to add relational features (requires at least 2 channels).
-
-    Returns
-    -------
-    np.ndarray
-        1D feature vector.
-    """
     feats = []
     for ch in window:
         feats.extend([
@@ -87,6 +50,7 @@ def extract_features_per_window(window, alpha=0.0, add_relational=False, biceps_
     return np.array(feats, dtype=np.float32)
 
 def build_feature_matrix(Xw, alpha=0.0, add_relational=False, return_names=True, biceps_idx=2, triceps_idx=5):
+    
     if Xw.ndim != 3:
         raise ValueError("Xw must have shape (num_windows, n_channels, win_size)")
 

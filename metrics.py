@@ -3,16 +3,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support, con
 
 
 def compute_classification_metrics(y_true, y_pred):
-    """
-    Compute standard classification metrics.
 
-    Returns a dict with:
-      - accuracy
-      - precision (macro)
-      - recall (macro)
-      - f1 (macro)
-      - confusion_matrix
-    """
     acc = accuracy_score(y_true, y_pred)
 
     precision, recall, f1, _ = precision_recall_fscore_support(

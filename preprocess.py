@@ -6,38 +6,12 @@ normalizer = Normalize()
 
 
 def remove_mean(channels):
-    """
-    Remove the DC component from each EMG channel.
 
-    Params
-    channels : list of np.ndarray
-        List of 1D EMG signals (one per channel).
-
-    Returns
-    list of np.ndarray
-        Channels with zero-mean (DC offset removed).
-    """
     return [ch - np.mean(ch) for ch in channels]
 
 
 def clip_outliers_mad(channels, k=6.0):
-    """
-    Clip extreme outliers using a robust MAD-based method.
 
-    This function limits very large amplitude spikes that are usually
-    caused by motion artifacts or electrode disturbances. It uses the
-    Median Absolute Deviation (MAD), which is robust to outliers.
-
-    Params
-    channels : list of np.ndarray
-        List of 1D EMG signals.
-    k : float, optional
-        Threshold in robust z-score units. Typical values are in [5, 8].
-
-    Returns
-    list of np.ndarray
-        Channels with extreme values clipped.
-    """
     clipped = []
     for ch in channels:
         med = np.median(ch)
@@ -56,20 +30,7 @@ def clip_outliers_mad(channels, k=6.0):
 
 
 def zscore_normalize(channels):
-    """
-    Apply z-score normalization to each channel.
 
-    Each signal is transformed to have zero mean and unit variance.
-    This reduces inter-subject and inter-channel amplitude differences.
-
-    Params
-    channels : list of np.ndarray
-        List of 1D EMG signals.
-
-    Returns
-    list of np.ndarray
-        Normalized channels.
-    """
     normed = []
     for ch in channels:
         mu = np.mean(ch)
@@ -85,21 +46,7 @@ def preprocess_channels(channels, clip_k=6.0):
     return ch
 
 def make_windows(channels, win_size=512, overlap=0.5):
-    """
-    Segment multi-channel EMG signals into overlapping windows.
 
-    Params
-    channels : list of np.ndarray
-        Preprocessed EMG channels.
-    win_size : int, optional
-        Window length in samples.
-    overlap : float, optional
-        Overlap ratio between consecutive windows (0.0 - 0.9).
-
-    Returns
-    list of np.ndarray
-        List of windows, each with shape (n_channels, win_size).
-    """
     step = int(win_size * (1 - overlap))
     if step <= 0:
         raise ValueError("Overlap too large: step <= 0")
@@ -118,29 +65,7 @@ def make_windows(channels, win_size=512, overlap=0.5):
 
 def build_window_dataset(dataStore, labels, win_size=512, overlap=0.5,
                          clip_k=6.0, max_windows_per_example=None):
-    """
-    Build a window-level dataset from file-level EMG recordings.
 
-    Params
-    dataStore : list
-        List of examples, where each example is a list of channels.
-    labels : list or np.ndarray
-        Class label for each example.
-    win_size : int, optional
-        Window length in samples.
-    overlap : float, optional
-        Overlap ratio between windows.
-    clip_k : float, optional
-        Threshold for MAD-based clipping.
-    max_windows_per_example : int or None, optional
-        Limit the number of windows extracted per example (useful for debugging).
-
-    Returns
-    Xw : np.ndarray
-        Array of shape (num_windows, n_channels, win_size).
-    yw : np.ndarray
-        Array of window-level labels of shape (num_windows,).
-    """
     X_list, y_list = [], []
 
     for ex, lab in zip(dataStore, labels):

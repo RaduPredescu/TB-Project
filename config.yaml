@@ -13,7 +13,7 @@ model:
     epochs: 400
     batch_size: 512
     lr: 1e-3
-    experiment_name: "10th_experiment"
+    experiment_name: "test"
 
     scheduler:
       step: 200        # la cate epoci se modifica LR

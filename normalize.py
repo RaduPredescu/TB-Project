@@ -5,7 +5,6 @@ class Normalize:
         self.eps = eps
 
     def peak_per_channel(self, channels):
-        # x_norm = x / max(|x|)
         out = []
         for ch in channels:
             m = np.max(np.abs(ch))
