@@ -125,7 +125,7 @@ Since it is a university project, we agreed NOT to have a branching strategy, wh
 
 ---
 
-## Experimental Results
+## MLP Experimental Results
 
 | Nr | Epochs | Optimizer | Batch | LR   | LR sched | LR factor | Experiment        | Acc (%) | Prec (%) | Rec (%) | F1 (%) | Duration (s) |
 |----|--------:|-----------|------:|------|----------:|-----------:|-------------------|--------:|---------:|--------:|-------:|-------------:|
