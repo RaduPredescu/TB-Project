@@ -122,3 +122,20 @@ split:
 **Important note!!!**
 
 Since it is a university project, we agreed NOT to have a branching strategy, which is a basic requirement in companies. So, all pushes were made directly on main.
+
+---
+
+## Experimental Results
+
+| Nr | Epochs | Optimizer | Batch | LR   | LR sched | LR factor | Experiment        | Acc (%) | Prec (%) | Rec (%) | F1 (%) | Duration (s) |
+|----|--------:|-----------|------:|------|----------:|-----------:|-------------------|--------:|---------:|--------:|-------:|-------------:|
+| 1  | 100 | Adam | 256 | 1e-3 | 50  | 0.1 | 1st_experiment  | 80.20 | 80.25 | 80.20 | 80.15 | 67.59 |
+| 2  | 200 | Adam | 256 | 1e-3 | 50  | 0.1 | 2nd_experiment  | 80.20 | 80.25 | 80.20 | 80.15 | 122.60 |
+| 3  | 100 | Adam | 512 | 1e-3 | 50  | 0.1 | 3rd_experiment  | 79.06 | 79.30 | 79.06 | 79.13 | 44.33 |
+| 4  | 200 | Adam | 512 | 1e-3 | 50  | 0.1 | 4th_experiment  | 79.06 | 79.30 | 79.06 | 79.13 | 88.23 |
+| 5  | 200 | Adam | 256 | 1e-2 | 50  | 0.1 | 5th_experiment  | 65.88 | 64.71 | 65.88 | 64.86 | 121.40 |
+| 6  | 200 | SGD  | 256 | 1e-3 | 50  | 0.1 | 6th_experiment  | 77.12 | 77.52 | 77.12 | 76.99 | 112.12 |
+| 7  | 200 | SGD  | 128 | 1e-3 | 50  | 0.1 | 7th_experiment  | 78.61 | 78.64 | 78.61 | 78.58 | 197.01 |
+| 8  | 200 | SGD  | 256 | 1e-3 | 150 | 0.1 | 8th_experiment  | 75.16 | 76.07 | 75.16 | 74.96 | 120.13 |
+| 9  | 200 | SGD  | 256 | 1e-4 | 150 | 0.1 | 9th_experiment  | 77.75 | 77.81 | 77.75 | 77.70 | 133.13 |
+| 10 | 400 | SGD  | 512 | 1e-3 | 200 | 0.1 | 10th_experiment | 77.45 | 78.26 | 77.45 | 77.49 | 178.87 |
