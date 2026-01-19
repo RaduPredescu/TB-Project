@@ -121,7 +121,7 @@ split:
 
 **Important note!!!**
 
-Since it is a university project, we agreed NOT to have a branching strategy, which is a basic requirement in companies. So, all pushes were made directly on main.
+Since it was a university project, we agreed NOT to have a branching strategy, which is a basic requirement in companies. So, all pushes were made directly on main.
 
 ---
 

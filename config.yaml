@@ -21,5 +21,5 @@ model:
 
   svm:
     C: 1.0
-    kernel: "linear"
+    kernel: "linear" #linear not giving any result...
     gamma: "scale"
