@@ -7,7 +7,7 @@ split:
   test: 0.15
 
 model:
-  type: "mlp"   # "mlp" or "svm"
+  type: "svm"   # "mlp" or "svm"
 
   mlp:
     epochs: 400
@@ -20,6 +20,6 @@ model:
       factor: 0.1    # lr = lr * factor
 
   svm:
-    C: 10.0
-    kernel: "rbf"
+    C: 1.0
+    kernel: "linear"
     gamma: "scale"
